@@ -1,0 +1,9 @@
+obspy
+numpy
+matplotlib
+scikit-learn
+pandas
+nbformat
+nbconvert
+jupyter
+ipykernel

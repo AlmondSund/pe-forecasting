@@ -1,0 +1,78 @@
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Permutation Entropy for Volcanic Forecasting (scikit-learn baseline)}
+\author{Mart\'in Ram\'irez Espinosa, Sergio Alejandro Gonz\'alez Osorio}
+\date{\today}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}{Why permutation entropy?}
+\begin{itemize}
+    \item Seismic waveforms change complexity before energetic events; PE captures this with minimal assumptions.
+    \item Lightweight: counts ordinal patterns, no heavy filtering or feature engineering.
+    \item Robust: deterministic tie-breaking makes PE stable on quantized or low-SNR data.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Theory: PE, WPE, MPE}
+For embedding dimension $m$ and delay $\tau$:
+\begin{enumerate}
+    \item Build ordinal patterns from $[x_t, x_{t+\tau}, \dots, x_{t+(m-1)\tau}]$ using value-first, index-second ordering.
+    \item Estimate the pattern distribution $p$ and compute $H = -\sum p \log p$.
+    \item Normalize by $\log(m!)$ to keep $PE \in [0,1]$.
+\end{enumerate}
+Weighted PE multiplies counts by local variance (down-weights flat windows). Multiscale PE repeats across several $\tau$ values to capture multi-rate dynamics.
+\end{frame}
+
+\begin{frame}{Implementation in this repo}
+\begin{itemize}
+    \item Core algorithms: \texttt{src/permutation\_entropy/features.py} (PE/WPE/MPE, deterministic ordinal patterns, sliding windows).
+    \item Feature extraction CLI: \texttt{data\_features.ingest} (MiniSEED $\rightarrow$ CSV of PE features with aligned start times).
+    \item Model helper: \texttt{permutation\_entropy.models} (balanced logistic regression, metrics, probabilities).
+    \item Training CLI: \texttt{bin/train\_pe.py} (loads CSV, stratified split when possible, saves probability plot).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Case study: Ridgecrest mainshock}
+\begin{itemize}
+    \item Data: IRIS MiniSEED around 2019-07-06 Ridgecrest mainshock (IU.ANMO, CI.BFS for closer view).
+    \item Windows: 30 s length, 5 s hop; labels mark 1180--1220 s from 03:00 UTC.
+    \item Features: PE, WPE, multiscale PE ($\tau=1..4$); labels recreated if missing in CSV.
+    \item Model: balanced logistic regression; evaluate on a held-out split to avoid optimistic metrics.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Waveform preview (CI.BFS, closer station)}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/waveform_bfs.png}
+\end{frame}
+
+\begin{frame}{Ordinal patterns in a window}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/ordinal_histogram.png}
+\end{frame}
+
+\begin{frame}{Probabilities over time (example)}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/probabilities_time.png}
+\end{frame}
+
+\begin{frame}{Pipeline summary}
+\begin{enumerate}
+    \item Download or load MiniSEED; resolve data paths automatically in notebooks/CLI.
+    \item Segment waveform into overlapping windows; compute PE/WPE/MPE per window.
+    \item Save CSV with \texttt{start\_sec} for plotting and \texttt{label} for supervised training.
+    \item Train logistic regression; plot alert probabilities against time to inspect separability.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Takeaways and next steps}
+\begin{itemize}
+    \item PE-based features provide a fast, transparent baseline for eruption/tremor alerting.
+    \item Deterministic patterns and balanced logistic regression reduce brittleness on small datasets.
+    \item Next: add cross-validation, threshold calibration, and spectral features; package for pip + CI.
+\end{itemize}
+\end{frame}
+
+\end{document}

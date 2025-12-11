@@ -1,0 +1,78 @@
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Entropía de Permutación para Alerta Sísmica (baseline scikit-learn)}
+\author{Mart\'in Ram\'irez Espinosa, Sergio Alejandro Gonz\'alez Osorio}
+\date{\today}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}{¿Por qué entropía de permutación?}
+\begin{itemize}
+    \item Las formas de onda sísmicas cambian su complejidad antes de eventos energéticos; PE captura esto con pocas suposiciones.
+    \item Ligero: sólo cuenta patrones ordinales, sin filtrado pesado ni features complejas.
+    \item Robusto: desempate determinista mantiene PE estable en datos cuantizados o con bajo SNR.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Teoría: PE, WPE, MPE}
+Para dimensión de embedding $m$ y retardo $\tau$:
+\begin{enumerate}
+    \item Formar patrones ordinales desde $[x_t, x_{t+\tau}, \dots, x_{t+(m-1)\tau}]$ ordenando por valor y luego índice.
+    \item Estimar la distribución de patrones $p$ y calcular $H = -\sum p \log p$.
+    \item Normalizar por $\log(m!)$ para mantener $PE \in [0,1]$.
+\end{enumerate}
+WPE multiplica los conteos por la varianza local (penaliza ventanas planas). MPE repite sobre varios $\tau$ para capturar dinámica multiescala.
+\end{frame}
+
+\begin{frame}{Implementación en este repo}
+\begin{itemize}
+    \item Algoritmos núcleo: \texttt{src/permutation\_entropy/features.py} (PE/WPE/MPE, patrones deterministas, ventanas deslizantes).
+    \item CLI de extracción: \texttt{data\_features.ingest} (MiniSEED $\rightarrow$ CSV de features PE con tiempos de inicio alineados).
+    \item Helper de modelo: \texttt{permutation\_entropy.models} (regresión logística balanceada, métricas, probabilidades).
+    \item CLI de entrenamiento: \texttt{bin/train\_pe.py} (lee CSV, split estratificado cuando se puede, guarda gráfico de probabilidades).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Caso de estudio: sismo principal de Ridgecrest}
+\begin{itemize}
+    \item Datos: MiniSEED de IRIS alrededor del sismo 2019-07-06 (IU.ANMO, CI.BFS para vista cercana).
+    \item Ventanas: 30 s de largo, salto de 5 s; etiquetas marcan 1180--1220 s desde 03:00 UTC.
+    \item Features: PE, WPE, MPE ($\tau=1..4$); se reetiquetan si faltan en el CSV.
+    \item Modelo: regresión logística balanceada; evaluación en split hold-out para evitar métricas optimistas.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Vista de forma de onda (CI.BFS, estación cercana)}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/waveform_bfs.png}
+\end{frame}
+
+\begin{frame}{Patrones ordinales en una ventana}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/ordinal_histogram.png}
+\end{frame}
+
+\begin{frame}{Probabilidades en el tiempo (ejemplo)}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/probabilities_time.png}
+\end{frame}
+
+\begin{frame}{Resumen del pipeline}
+\begin{enumerate}
+    \item Descargar o cargar MiniSEED; resolver rutas de datos automáticamente en notebooks/CLI.
+    \item Segmentar la señal en ventanas solapadas; calcular PE/WPE/MPE por ventana.
+    \item Guardar CSV con \texttt{start\_sec} para gráficos y \texttt{label} para entrenamiento supervisado.
+    \item Entrenar regresión logística; graficar probabilidades vs. tiempo para inspeccionar separabilidad.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Conclusiones y siguientes pasos}
+\begin{itemize}
+    \item Las features basadas en PE son un baseline rápido y transparente para alertas de erupción/temblor.
+    \item Patrones deterministas y regresión balanceada reducen fragilidad en datasets pequeños.
+    \item Siguiente: añadir validación cruzada, calibración de umbrales y features espectrales; empaquetar para pip + CI.
+\end{itemize}
+\end{frame}
+
+\end{document}
